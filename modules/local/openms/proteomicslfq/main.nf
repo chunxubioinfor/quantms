@@ -12,6 +12,7 @@ process PROTEOMICSLFQ {
     path(id_files)
     path(expdes)
     path(fasta)
+    path(feat_ckpts, stageAs: 'feat_dir/*')
 
     output:
     path "${expdes.baseName}_qpx", emit: out_qpx
@@ -34,6 +35,9 @@ process PROTEOMICSLFQ {
     def id_sorted = id_files.collect().sort{ a, b -> a.name <=> b.name}
     def feature_with_id_min_score =  "-feature_with_id_min_score ${params.feature_with_id_min_score}"
     def feature_without_id_min_score = params.targeted_only == false ? "-feature_without_id_min_score ${params.feature_without_id_min_score}" : ""
+    // Combine mode (--plfq_parallel_detection): per-run feature checkpoints from PROTEOMICSLFQ_DETECT
+    // replace -in/-ids. Otherwise feat_ckpts is empty and the command is the usual single-shot one.
+    def input_args = feat_ckpts ? "-feat_dir feat_dir" : "-in ${mzml_sorted.join(' ')} \\\n        -ids ${id_sorted.join(' ')}"
 
     // NB: OpenMS ProteomicsLFQ REQUIRES -out (mzTab). It is produced but deliberately
     // NOT declared as an output (no emit) so the pipeline neither publishes nor
@@ -41,8 +45,7 @@ process PROTEOMICSLFQ {
     """
     ProteomicsLFQ \\
         -threads ${task.cpus} \\
-        -in ${mzml_sorted.join(' ')} \\
-        -ids ${id_sorted.join(' ')} \\
+        ${input_args} \\
         -design ${expdes} \\
         -fasta ${fasta} \\
         -protein_inference ${params.protein_inference_method} \\

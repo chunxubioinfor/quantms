@@ -27,6 +27,10 @@ input:
       type: file
       description: A protein database in with appended decoy sequences in FASTA format.
       pattern: "*.{fasta,fa}"
+  - feat_ckpts:
+      type: directory
+      description: Optional per-run feature checkpoints from PROTEOMICSLFQ_DETECT (--plfq_parallel_detection). When given, they replace mzmls/id_files and this task only combines them. Pass [] otherwise.
+      pattern: "*.featureParquet"
 output:
   - out_consensusXML:
       type: file
