@@ -1052,6 +1052,12 @@
                     "description": "Also quantify decoys?",
                     "fa_icon": "far fa-check-square"
                 },
+                "plfq_parallel_detection": {
+                    "type": "boolean",
+                    "description": "Run ProteomicsLFQ feature detection as one task per MS run, then combine them in a final ProteomicsLFQ step.",
+                    "help_text": "Uses the OpenMS ProteomicsLFQ `-feat_dir`/`-detect_only` checkpoints: each run's features are detected in its own task, so detection runs in parallel and is cached per run on `-resume`. The final combine step (alignment, linking, inference, quantification) still processes all runs together, so its peak memory is not expected to drop. Every task must see the same FASTA file (checkpoints compare it by size and modification time), which holds with Nextflow's default symlink staging. Not available with `--quantification_method spectral_counting`.",
+                    "fa_icon": "fas fa-network-wired"
+                },
                 "plfq_debug": {
                     "type": "integer",
                     "description": "Debug level when running the re-scoring. Logs become more verbose and at '>666' potentially very large temporary files are kept.",

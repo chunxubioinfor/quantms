@@ -8,6 +8,7 @@
 // MODULES: Local to the pipeline
 //
 include { PROTEOMICSLFQ } from '../modules/local/openms/proteomicslfq/main'
+include { PROTEOMICSLFQ_DETECT } from '../modules/local/openms/proteomicslfq_detect/main'
 include { QPX_OPENMSCONSENSUS } from '../modules/bigbio/qpx/openmsconsensus/main'
 
 //
@@ -41,17 +42,41 @@ workflow LFQ {
     //
     // SUBWORKFLOW: PROTEOMICSLFQ
     //
-    ch_file_preparation_results.join(ID.out.id_results)
-        .multiMap { it ->
-            mzmls: pmultiqc_mzmls: it[1]
-            ids: it[2]
-        }
-        .set{ ch_plfq }
-    PROTEOMICSLFQ(ch_plfq.mzmls.collect(),
-                ch_plfq.ids.collect(),
-                ch_expdesign,
-                ch_database_wdecoy
-            )
+    ch_mzml_ids = ch_file_preparation_results.join(ID.out.id_results)
+
+    if (params.plfq_parallel_detection && params.quantification_method == 'spectral_counting') {
+        error("--plfq_parallel_detection requires --quantification_method feature_intensity: spectral counting detects no features.")
+    }
+
+    if (params.plfq_parallel_detection) {
+        //
+        // MODULE: PROTEOMICSLFQ_DETECT -- one feature-detection task per run, writing a
+        // checkpoint each; PROTEOMICSLFQ then combines all of them (no mzML/IDs needed).
+        // The combine can only start once every run of the design has a checkpoint, hence collect().
+        //
+        PROTEOMICSLFQ_DETECT(ch_mzml_ids, ch_expdesign.first(), ch_database_wdecoy.first())
+        ch_software_versions = ch_software_versions.mix(PROTEOMICSLFQ_DETECT.out.versions.first())
+
+        PROTEOMICSLFQ([],
+                    [],
+                    ch_expdesign,
+                    ch_database_wdecoy,
+                    PROTEOMICSLFQ_DETECT.out.checkpoint.collect()
+                )
+    } else {
+        ch_mzml_ids
+            .multiMap { it ->
+                mzmls: pmultiqc_mzmls: it[1]
+                ids: it[2]
+            }
+            .set{ ch_plfq }
+        PROTEOMICSLFQ(ch_plfq.mzmls.collect(),
+                    ch_plfq.ids.collect(),
+                    ch_expdesign,
+                    ch_database_wdecoy,
+                    []
+                )
+    }
     ch_software_versions = ch_software_versions.mix(PROTEOMICSLFQ.out.versions)
 
     //
